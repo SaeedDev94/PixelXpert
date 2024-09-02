@@ -15,8 +15,6 @@ import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.topjohnwu.superuser.Shell;
 import com.topjohnwu.superuser.ipc.RootService;
 
 import java.util.concurrent.CountDownLatch;
@@ -25,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 import sh.siava.pixelxpert.R;
 import sh.siava.pixelxpert.databinding.ActivitySplashScreenBinding;
 import sh.siava.pixelxpert.service.RootProvider;
-import sh.siava.pixelxpert.utils.AppUtils;
 
 @SuppressLint("CustomSplashScreen")
 public class SplashScreenActivity extends AppCompatActivity {
@@ -37,7 +34,6 @@ public class SplashScreenActivity extends AppCompatActivity {
 
 	String TAG = getClass().getSimpleName();
 	private ActivitySplashScreenBinding mBinding;
-	private final CountDownLatch mRootCheckPassed = new CountDownLatch(1);
 	private final CountDownLatch mRootServiceConnected = new CountDownLatch(1);
 	private boolean mCoreRootServiceBound = false;
 	private ServiceConnection mCoreRootServiceConnection;
@@ -54,33 +50,9 @@ public class SplashScreenActivity extends AppCompatActivity {
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
 		getWindow().setStatusBarColor(getColorFromAttribute(this, R.attr.colorSurface));
 
-		// Root permission check
-		new Thread(() -> {
-			if (Shell.getShell().isRoot()) {
-				mRootCheckPassed.countDown();
-			} else {
-				if(!getIntent().hasExtra("FromKSU")) {
-					AppUtils.runKSURootActivity(this, true);
-				}
-
-				runOnUiThread(() ->
-						new MaterialAlertDialogBuilder(SplashScreenActivity.this, R.style.MaterialComponents_MaterialAlertDialog)
-								.setCancelable(false)
-								.setMessage(getText(R.string.root_access_denied))
-								.setPositiveButton(getText(R.string.exit), (dialog, i) -> System.exit(0))
-								.show());
-			}
-
-			// Update the UI
-			setCheckUIDone(mBinding.circularRoot.getId(), mBinding.doneRoot.getId(), mRootCheckPassed.getCount() == 0);
-		}).start();
-
 		// End splash screen and go to the main activity
 		new Thread(() -> {
 			try {
-				// Wait for all checks to pass and for all operations to finish
-				mRootCheckPassed.await();
-
 				for (int i = 0; i < 2; i++) {
 					if (connectRootService())
 						break;
@@ -92,19 +64,10 @@ public class SplashScreenActivity extends AppCompatActivity {
 				// This is just for aesthetics: I don't want the splashscreen to be too fast
 				Thread.sleep(1000);
 
-				if (mRootServiceConnected.getCount() == 0) {
-					// Start the main activity
-					Intent intent1 = new Intent(SplashScreenActivity.this, SettingsActivity.class);
-					intent1.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-					startActivity(intent1);
-				} else {
-					runOnUiThread(() ->
-							new MaterialAlertDialogBuilder(SplashScreenActivity.this, R.style.MaterialComponents_MaterialAlertDialog)
-									.setCancelable(false)
-									.setMessage(getText(R.string.root_service_failed))
-									.setPositiveButton(getText(R.string.exit), (dialog, i) -> System.exit(0))
-									.show());
-				}
+				// Start the main activity
+				Intent intent1 = new Intent(SplashScreenActivity.this, SettingsActivity.class);
+				intent1.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+				startActivity(intent1);
 			} catch (InterruptedException e) {
 				Log.e(TAG, e.toString());
 			}
